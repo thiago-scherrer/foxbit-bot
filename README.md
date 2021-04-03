@@ -5,5 +5,5 @@
 ### what is it
 
 A SDK on go to use the Foxbit WebSocket APIs.
-A All structs and APIs are based on official (Foxbit documentation)[https://foxbit.com.br/api]
+A All structs and APIs are based on official [Foxbit documentation](https://foxbit.com.br/api)
 

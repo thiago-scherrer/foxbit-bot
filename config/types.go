@@ -19,6 +19,14 @@ const (
 )
 
 const (
-	APIURL    = "wss://api.foxbit.com.br/"
+	APIURL    = "api.foxbit.com.br"
 	UserAgent = "Foxbit GO API SDK https://github.com/thiago-scherrer/foxbit-go)"
 )
+
+type Products struct {
+	Products []Product `json:products`
+}
+
+type Product struct {
+	Name string `json:name`
+}

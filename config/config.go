@@ -1,42 +1,83 @@
 package config
 
 import (
-	"fmt"
-	"net/http"
+	"log"
 	"net/url"
+	"os"
+	"os/signal"
+	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 // FoxbitApi represents a Foxbit API Client connection
-type FoxbitApi = FoxbitAPI
+/*type FoxbitApi = FoxbitAPI
 
 var publicMethods = []string{
 	"OMSId",
 }
+*/
 
 // FoxbitApi represents a Foxbit API Client connection
 type FoxbitAPI struct {
-	key    string
-	secret string
-	client *http.Client
+	WebsocketConn *websocket.Conn
 }
 
-// New creates a new connection
-func New(key, secret string) (*FoxbitAPI, error) {
-	foxbitAPI := FoxbitAPI{
-		key:    key,
-		secret: secret,
-		client: http.DefaultClient,
+func (api *FoxbitAPI) RequestPub() {
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+
+	u := url.URL{Scheme: "wss", Host: APIURL, Path: "/"}
+	log.Printf("connection to %s", u.String())
+
+	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	if err != nil {
+		log.Fatal("dial:", err)
 	}
-	return &foxbitAPI, nil
-}
+	defer c.Close()
 
-func (api *FoxbitAPI) Query(endPoint string, data map[string]string) (interface{}, error) {
-	return queryPublic(endPoint, values, nil)
-}
+	done := make(chan struct{})
 
-func (api *FoxbitAPI) queryPublic(method string, values url.Values, typ interface{}) (interface{}, error) {
-	url := fmt.Sprintf("%s/%s/public/%s", APIURL, APIVersion, method)
-	resp, err := api.makeWs(url, values)
+	go func() {
+		defer close(done)
+		for {
+			_, message, err := c.ReadMessage()
+			if err != nil {
+				log.Println("read:", err)
+				return
+			}
+			log.Printf("recv: %s", message)
+		}
+	}()
 
-	return resp, err
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-done:
+			return
+		case t := <-ticker.C:
+			err := c.WriteMessage(websocket.TextMessage, []byte(t.String()))
+			if err != nil {
+				log.Println("write:", err)
+				return
+			}
+		case <-interrupt:
+			log.Println("interrupt")
+
+			// Cleanly close the connection by sending a close message and then
+			// waiting (with timeout) for the server to close the connection.
+			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			if err != nil {
+				log.Println("write close:", err)
+				return
+			}
+			select {
+			case <-done:
+			case <-time.After(time.Second):
+			}
+			return
+		}
+	}
 }

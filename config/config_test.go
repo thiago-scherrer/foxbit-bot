@@ -1,14 +1,13 @@
 package config
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
-func TestLoad(t *testing.T) {
-	want := true
-	got, err := Load()
+func TestNewResult(t *testing.T) {
+	got, _ := New("aaa", "bbb")
+	fmt.Println(got)
 
-	if got != want {
-		t.Error("Load test return false but want true")
-	} else if err != nil {
-		t.Error("Load test return a error.")
-	}
+	t.Error("New connection return: ", got)
 }
